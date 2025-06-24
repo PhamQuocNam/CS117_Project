@@ -20,7 +20,7 @@
 |----|------------|------------------|-------------|--------------------------------------------------------|
 | 1  | 23520984   | Phạm Quốc Nam    | Team Leader          | 23520984@gm.uit.edu.vn   |
 | 2  | 23520044   | Phạm Thị Hồng Hạnh      | Member        | 23520442@gm.uit.edu.vn  |
-| 3  | 23520983   | Nguyễn Phương Nam  | Membe              | 23520980@gm.uit.edu.vn |
+| 3  | 23520983   | Nguyễn Phương Nam  | Member              | 23520980@gm.uit.edu.vn |
 
 
 
