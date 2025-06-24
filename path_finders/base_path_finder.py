@@ -13,6 +13,7 @@ class PathFinder:
                 - map_size: tuple (width, height) of the parking lot
                 - initial_pos: tuple (x, y) starting position (entrance)
                 - obstacles: list of (x, y) positions that are blocked
+                - paths: list of (x,y) positions that not allow to park but allow vehicle to move through
         """
         self.map_size = config.map_size  # (width, height)
         self.initial_pos = config.initial_pos
@@ -21,7 +22,7 @@ class PathFinder:
         self.distance_matrix = [[float('inf') for _ in range(self.map_size[1])] 
                                for _ in range(self.map_size[0])]
         
-        # Status matrix: 0=empty, 1=parked, 2=obstacle
+        # Status matrix: 0=empty, 1=parked, 2=obstacle, 3=path_only
         self.status_matrix = [[0 for _ in range(self.map_size[1])] 
                              for _ in range(self.map_size[0])]
         
@@ -34,6 +35,12 @@ class PathFinder:
             for obs_x, obs_y in config.obstacles:
                 if self._is_valid_position(obs_x, obs_y):
                     self.status_matrix[obs_x][obs_y] = 2
+                
+        # Set path-only positions if provided
+        if hasattr(config, 'paths') and config.paths:
+            for x, y in config.paths:
+                if self._is_valid_position(x, y):
+                    self.status_matrix[x][y] = 3
         
         # Calculate distances from initial position using BFS
         self._calculate_distances()
@@ -63,7 +70,7 @@ class PathFinder:
             if not self._is_valid_position(x, y) or visited[x][y]:
                 continue
             
-            # Skip if it's an obstacle
+            # Skip if it's an obstacle (but allow path-only positions for movement)
             if self.status_matrix[x][y] == 2:
                 continue
             
@@ -75,7 +82,7 @@ class PathFinder:
                 new_x, new_y = x + dx, y + dy
                 if (self._is_valid_position(new_x, new_y) and 
                     not visited[new_x][new_y] and 
-                    self.status_matrix[new_x][new_y] != 2):
+                    self.status_matrix[new_x][new_y] != 2):  # Allow movement through paths
                     queue.append((new_x, new_y, dist + 1))
     
     def _update_blank_positions(self):
@@ -84,8 +91,10 @@ class PathFinder:
         
         for x in range(self.map_size[0]):
             for y in range(self.map_size[1]):
-                if (self.status_matrix[x][y] == 0 and  # Empty spot
-                    self.distance_matrix[x][y] != float('inf') and (x,y)!=self.initial_pos):  # Reachable
+                # Only include positions that are empty (0) and not path-only (3)
+                if (self.status_matrix[x][y] == 0 and  # Empty and parkable
+                    self.distance_matrix[x][y] != float('inf') and  # Reachable
+                    (x, y) != self.initial_pos):  # Not the entrance
                     heapq.heappush(self.blank_pos_list, 
                                  (self.distance_matrix[x][y], [x, y]))
     
@@ -100,7 +109,7 @@ class PathFinder:
             distance, position = heapq.heappop(self.blank_pos_list)
             x, y = position
             
-            # Check if this position is still empty
+            # Check if this position is still empty and parkable
             if self.status_matrix[x][y] == 0:
                 return (x, y)
         
@@ -123,7 +132,10 @@ class PathFinder:
             return False
         
         if self.status_matrix[x][y] != 0:
-            print(f"Position ({x}, {y}) is not empty")
+            if self.status_matrix[x][y] == 3:
+                print(f"Position ({x}, {y}) is a path-only area, parking not allowed")
+            else:
+                print(f"Position ({x}, {y}) is not empty")
             return False
         
         # Park the vehicle
@@ -158,7 +170,7 @@ class PathFinder:
         if (x, y) in self.parked_list:
             self.parked_list.remove((x, y))
         
-        # Add back to blank positions heap
+        # Add back to blank positions heap if reachable
         if self.distance_matrix[x][y] != float('inf'):
             heapq.heappush(self.blank_pos_list, 
                          (self.distance_matrix[x][y], [x, y]))
@@ -179,6 +191,10 @@ class PathFinder:
         if not self._is_valid_position(target_pos[0], target_pos[1]):
             return []
         
+        # Check if target is reachable
+        if self.distance_matrix[target_pos[0]][target_pos[1]] == float('inf'):
+            return []
+        
         path = []
         current = target_pos
         
@@ -188,10 +204,7 @@ class PathFinder:
             x, y = current
             current_dist = self.distance_matrix[x][y]
             
-            if current_dist == float('inf'):
-                return []  # No path exists
-            
-            # Find the neighbor with the smallest distance
+            # Find the neighbor with the smallest distance that leads toward start
             best_neighbor = None
             min_dist = float('inf')
             
@@ -204,13 +217,23 @@ class PathFinder:
             for dx, dy in directions:
                 new_x, new_y = x + dx, y + dy
                 if (self._is_valid_position(new_x, new_y) and
-                    self.distance_matrix[new_x][new_y] < min_dist and
-                    self.distance_matrix[new_x][new_y] < current_dist):
+                    self.distance_matrix[new_x][new_y] < current_dist and
+                    self.distance_matrix[new_x][new_y] < min_dist):
                     min_dist = self.distance_matrix[new_x][new_y]
                     best_neighbor = (new_x, new_y)
             
             if best_neighbor is None:
-                return []  # No valid path
+                # Fallback: try to find any reachable neighbor with smaller distance
+                for dx, dy in directions:
+                    new_x, new_y = x + dx, y + dy
+                    if (self._is_valid_position(new_x, new_y) and
+                        self.distance_matrix[new_x][new_y] != float('inf') and
+                        self.distance_matrix[new_x][new_y] < current_dist):
+                        best_neighbor = (new_x, new_y)
+                        break
+                
+                if best_neighbor is None:
+                    return []  # No valid path found
             
             current = best_neighbor
         
@@ -225,26 +248,32 @@ class PathFinder:
         Returns:
             dict: Status information including total spots, parked, empty, etc.
         """
-        total_spots = 0
+        total_parkable_spots = 0
         empty_spots = 0
         parked_spots = len(self.parked_list)
         obstacle_spots = 0
+        path_only_spots = 0
         
         for x in range(self.map_size[0]):
             for y in range(self.map_size[1]):
                 if self.distance_matrix[x][y] != float('inf'):  # Reachable positions
-                    total_spots += 1
                     if self.status_matrix[x][y] == 0:
+                        total_parkable_spots += 1
                         empty_spots += 1
+                    elif self.status_matrix[x][y] == 1:
+                        total_parkable_spots += 1
                     elif self.status_matrix[x][y] == 2:
                         obstacle_spots += 1
+                    elif self.status_matrix[x][y] == 3:
+                        path_only_spots += 1
         
         return {
-            'total_reachable_spots': total_spots,
+            'total_parkable_spots': total_parkable_spots,
             'empty_spots': empty_spots,
             'parked_spots': parked_spots,
             'obstacle_spots': obstacle_spots,
-            'occupancy_rate': parked_spots / total_spots if total_spots > 0 else 0
+            'path_only_spots': path_only_spots,
+            'occupancy_rate': parked_spots / total_parkable_spots if total_parkable_spots > 0 else 0
         }
     
     def visualize_map(self) -> str:
@@ -265,30 +294,38 @@ class PathFinder:
                     row.append('P')  # Parked
                 elif self.status_matrix[x][y] == 2:
                     row.append('X')  # Obstacle
+                elif self.status_matrix[x][y] == 3:
+                    row.append('R')  # Road/Path only
                 elif self.distance_matrix[x][y] == float('inf'):
                     row.append('#')  # Unreachable
                 else:
-                    row.append('.')  # Empty
+                    row.append('.')  # Empty parkable spot
             visualization.append(' '.join(row))
         
-        legend = "\nLegend: S=Start, P=Parked, X=Obstacle, #=Unreachable, .=Empty"
+        legend = "\nLegend: S=Start, P=Parked, X=Obstacle, R=Road/Path, #=Unreachable, .=Empty"
         return '\n'.join(visualization) + legend
+
 
 # Configuration class for the PathFinder
 class PathFinderConfig:
     def __init__(self, map_size: Tuple[int, int], initial_pos: Tuple[int, int], 
-                 obstacles: List[Tuple[int, int]] = None):
+                 obstacles: List[Tuple[int, int]] = None, 
+                 paths: List[Tuple[int, int]] = None):
         self.map_size = map_size
         self.initial_pos = initial_pos
         self.obstacles = obstacles or []
+        self.paths = paths or []
 
-# Example usage
+
+# Example usage and testing
 if __name__ == "__main__":
-    # Create configuration
+    # Create configuration with obstacles and paths
     config = PathFinderConfig(
-        map_size=(10, 8),
+        map_size=(12, 8),
         initial_pos=(0, 0),
-        obstacles=[(2, 2), (2, 3), (3, 2), (3, 3)]  # Some blocked areas
+        obstacles=[(2, 2), (2, 3), (3, 2), (3, 3), (8, 4), (9, 4)],  # Blocked areas
+        paths=[(1, 0), (1, 1), (1, 2), (1, 3), (1, 4), (1, 5), (1, 6), (1, 7),  # Vertical road
+               (0, 4), (2, 4), (3, 4), (4, 4), (5, 4), (6, 4), (7, 4)]  # Horizontal road
     )
     
     # Initialize path finder
@@ -299,22 +336,45 @@ if __name__ == "__main__":
     print(pf.visualize_map())
     print()
     
-    # Find and park at closest spot
-    closest_spot = pf.find_shortest_blank_position()
-    if closest_spot:
-        print(f"Closest parking spot: {closest_spot}")
-        pf.park_vehicle(closest_spot)
-        
-        # Show path to the spot
-        path = pf.get_path_to_position(closest_spot)
-        print(f"Path to parking spot: {path}")
+    # Test parking multiple vehicles
+    for i in range(5):
+        closest_spot = pf.find_shortest_blank_position()
+        if closest_spot:
+            print(f"Vehicle {i+1} - Closest parking spot: {closest_spot}")
+            success = pf.park_vehicle(closest_spot)
+            
+            if success:
+                # Show path to the spot
+                path = pf.get_path_to_position(closest_spot)
+                print(f"Path to parking spot: {path}")
+                print(f"Distance: {pf.distance_matrix[closest_spot[0]][closest_spot[1]]}")
+        else:
+            print(f"No available parking spots for vehicle {i+1}")
         print()
     
     # Show updated map
-    print("After parking:")
+    print("After parking vehicles:")
     print(pf.visualize_map())
     print()
     
     # Show status
     status = pf.get_parking_status()
-    print("Parking status:", status)
+    print("Parking status:")
+    for key, value in status.items():
+        if key == 'occupancy_rate':
+            print(f"  {key}: {value:.2%}")
+        else:
+            print(f"  {key}: {value}")
+    
+    # Test removing a parked vehicle
+    if pf.parked_list:
+        removed_pos = pf.parked_list[0]
+        print(f"\nRemoving vehicle from {removed_pos}")
+        pf.remove_parked_position(removed_pos)
+        
+        print("After removing vehicle:")
+        print(pf.visualize_map())
+        
+        # Show updated status
+        status = pf.get_parking_status()
+        print(f"Updated occupancy rate: {status['occupancy_rate']:.2%}")

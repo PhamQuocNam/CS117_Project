@@ -31,7 +31,31 @@ class Config:
     # Parking lot map
     map_size=(40,40)
     initial_pos = (0,0)
-    obstacles= [(1,2),(1,3),(2,4)]
+    obstacles= []
+    
+    for r in range(1, 19):
+        obstacles.append([r, 7])
+    
+    for c in range(1, 14):
+        obstacles.append([8, c])
+    
+    paths = []
+    
+    for c in range(1, 15):
+        paths.append([0, c])
+
+    # Range: rows 1 to 19, column 0
+    for r in range(1, 20):
+        paths.append([r, 0])
+
+    # Range: rows 1 to 19, column 14
+    for r in range(1, 20):
+        paths.append([r, 14])
+        
+    for c in range(1,14):
+        paths.append([19,c])
+        
+        
     # API Configuration
     api_host: str = "0.0.0.0"
     api_port: int = 8000

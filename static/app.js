@@ -2,7 +2,35 @@
 const rows = 20;
 const cols = 15;
 const grid = document.getElementById("grid");
-const obstacles = [[1,2],[1,3],[2,4]];
+const obstacles = [];
+
+for (let r = 1; r < 19; r++) {
+    obstacles.push([r, 7]);
+}
+
+for (let c = 1; c < 14; c++) {
+    obstacles.push([8, c]);
+}
+
+const paths = []
+
+for (let c = 1; c < 15; c++) {
+    paths.push([0, c]);
+}
+
+for (let r = 1; r < 20; r++) {
+    paths.push([r, 0]);
+}
+
+for (let r = 1; r < 20; r++) {
+    paths.push([r, 14]);
+}
+
+for(let c = 1; c<15; c++ ){
+  paths.push([19,c])
+}
+
+
 const startPos = [0, 0];
 const gridData = [];
 const xAxis = document.querySelector(".x-axis");
@@ -52,7 +80,10 @@ function createGrid() {
         type = "start";
       } else if (obstacles.some(([or, oc]) => or === r && oc === c)) {
         type = "obstacle";
+      } else if (paths.some(([or,oc])=> or === r && oc === c)){
+        type = "path"
       }
+
 
       cell.classList.add(type);
       gridData[r][c] = type;
@@ -169,7 +200,7 @@ async function removeVehicle(r, c) {
     }
 
     if (response.ok) {
-      const number_plate = cell.textContent.trim();  // Get before clearing
+      const number_plate = cell.querySelector("span")?.textContent.trim() || "UNKNOWN"; 
       const position = idx2word[c] + String(r);      
 
       // Update UI
@@ -206,7 +237,7 @@ async function removeVehicle(r, c) {
 
 // Update the status dashboard
 function updateStatus() {
-  let total = 0, occupied = 0, obstacleCount = 0;
+  let total = 0, occupied = 0, obstacleCount = 0, pathCount=0;
   
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
@@ -214,10 +245,12 @@ function updateStatus() {
       if (type !== "obstacle" && type !== "start") total++;
       if (type === "occupied") occupied++;
       if (type === "obstacle") obstacleCount++;
+      if (type === "path") pathCount++;
+
     }
   }
   
-  const available = total - occupied;
+  const available = total - occupied- pathCount;
   const rate = total ? Math.round((occupied / total) * 100) : 0;
   
   // Update status display
@@ -377,11 +410,6 @@ function readFileAsDataURL(file) {
 function highlightParkingSpot(x, y, plate) {
   const cell = document.querySelector(`.cell[data-row='${x}'][data-col='${y}']`);
   if (!cell || gridData[x][y] !== "empty") return;
-  
-  // Clear previous highlights
-  document.querySelectorAll('.cell.path').forEach(el => {
-    el.classList.remove('path');
-  });
   
   // Mark as occupied
   cell.classList.remove("empty");

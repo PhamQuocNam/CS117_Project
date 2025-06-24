@@ -248,7 +248,7 @@ body {
 .legend-color.occupied { background-color: #ff7f7f; }
 .legend-color.obstacle { background-color: #555; }
 .legend-color.start { background-color: #6b8e23; }
-.legend-color.path { background-color: #ffd700; }
+.legend-color.path { background-color: #e4dcaf; }
 
 .grid-wrapper {
   display: flex;
@@ -337,6 +337,11 @@ body {
   cursor: not-allowed;
 }
 
+.cell.path {
+  background-color:#e4dcaf;
+  cursor: not-allowed
+}
+
 .cell.start { 
   background-color: #6b8e23; 
   color: white; 
@@ -344,10 +349,6 @@ body {
   font-size: 14px;
 }
 
-.cell.path { 
-  background-color: #ffd700;
-  animation: pulse 1.5s infinite;
-}
 
 .plate-info {
   display: flex;
