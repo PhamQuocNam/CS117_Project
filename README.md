@@ -26,6 +26,12 @@
 
 ---
 
+## 🏗 Process
+
+![Process](https://github.com/user-attachments/assets/b5029dba-c4a8-42f5-8126-52363d3c1d84)
+
+---
+
 ## 📸 Result Snapshots
 
 ### 📍 Number Plate Detection  
