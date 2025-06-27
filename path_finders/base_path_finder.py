@@ -57,11 +57,7 @@ class PathFinder:
                   for _ in range(self.map_size[0])]
         
         # 8-directional movement (including diagonals)
-        directions = [
-            (-1, -1), (-1, 0), (-1, 1),
-            (0, -1),           (0, 1),
-            (1, -1),  (1, 0),  (1, 1)
-        ]
+        directions = [(-1, 0),(0, -1),(0, 1),(1, 0)]
         
         while queue:
             x, y, dist = queue.popleft()

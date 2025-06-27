@@ -229,7 +229,7 @@ def predict_base64(image_data: dict):
         # Predict plates and result images
         plate_texts = model.get_plate_texts(image)
         result_images = model.predict(image)
-
+        
         result_images_b64 = []
         for img in result_images:
             img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
